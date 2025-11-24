@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  trading-system:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - EXCHANGE=${EXCHANGE:-binance}
+      - BASE_CAPITAL=${BASE_CAPITAL:-10000}
+      - DAILY_TARGET=${DAILY_TARGET:-5.0}
+      - MAX_RISK_PER_TRADE=${MAX_RISK_PER_TRADE:-2.0}
+    volumes:
+      - .:/app
+      - trading_data:/app/data
+    restart: unless-stopped
+    networks:
+      - trading-network
+
+  web-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=web_interface/dashboard.py
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    networks:
+      - trading-network
+
+networks:
+  trading-network:
+    driver: bridge
+
+volumes:
+  trading_data:

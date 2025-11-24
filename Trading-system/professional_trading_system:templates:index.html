@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProTrading System - Sistema Profesional de Trading</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional-style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header Profesional -->
+    <header class="header glass">
+        <div class="logo">
+            <i class="fas fa-chart-network"></i>
+            <span>ProTrading System</span>
+        </div>
+        
+        <nav class="nav-menu">
+            <a href="/" class="nav-item active">Inicio</a>
+            <a href="/dashboard" class="nav-item">Dashboard</a>
+            <a href="/terminal" class="nav-item">Terminal</a>
+        </nav>
+        
+        <div class="user-info">
+            <div class="balance-display">
+                <span class="balance-label">Balance:</span>
+                <span class="balance-amount">$12,345.67</span>
+            </div>
+            <div class="user-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- Hero Section Profesional -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title fade-in">
+                    <span class="gradient-text">Sistema de Trading Profesional</span>
+                    <span class="subtitle">Con tecnología avanzada y análisis técnico</span>
+                </h1>
+                
+                <div class="hero-stats">
+                    <div class="stat-item slide-in" style="animation-delay: 0.1s;">
+                        <div class="stat-label">
+                            <i class="fas fa-wallet"></i>
+                            Balance Total
+                        </div>
+                        <div class="stat-value balance">$12,345.67</div>
+                        <div class="stat-change positive">+2.34%</div>
+                    </div>
+                    <div class="stat-item slide-in" style="animation-delay: 0.2s;">
+                        <div class="stat-label">
+                            <i class="fas fa-chart-line"></i>
+                            P&L Hoy
+                        </div>
+                        <div class="stat-value pnl">+$234.56</div>
+                        <div class="stat-change positive">+1.9%</div>
+                    </div>
+                    <div class="stat-item slide-in" style="animation-delay: 0.3s;">
+                        <div class="stat-label">
+                            <i class="fas fa-bolt"></i>
+                            Win Rate
+                        </div>
+                        <div class="stat-value win-rate">68%</div>
+                        <div class="stat-change">Objetivo: 70%</div>
+                    </div>
+                </div>
+
+                <div class="hero-actions">
+                    <button class="btn btn-primary hover-glow ripple" onclick="window.location.href='/terminal'">
+                        <i class="fas fa-play"></i>
+                        Iniciar Trading
+                    </button>
+                    <button class="btn btn-secondary hover-glow ripple" onclick="window.location.href='/dashboard'">
+                        <i class="fas fa-chart-bar"></i>
+                        Ver Dashboard
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section Profesional -->
+        <section class="features-section">
+            <div class="section-header">
+                <h2 class="fade-in">Características Profesionales</h2>
+                <p class="fade-in">Lo último en tecnología de trading</p>
+            </div>
+            
+            <div class="dashboard-grid">
+                <div class="dashboard-card slide-in" style="animation-delay: 0.1s;">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-line"></i> Análisis Técnico</h3>
+                    </div>
+                    <div class="card-content">
+                        <p>Indicadores técnicos avanzados y análisis de mercado en tiempo real</p>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card slide-in" style="animation-delay: 0.2s;">
+                    <div class="card-header">
+                        <h3><i class="fas fa-robot"></i> Trading Automático</h3>
+                    </div>
+                    <div class="card-content">
+                        <p>Sistema de trading algorítmico con gestión de riesgo inteligente</p>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card slide-in" style="animation-delay: 0.3s;">
+                    <div class="card-header">
+                        <h3><i class="fas fa-shield-alt"></i> Gestión de Riesgo</h3>
+                    </div>
+                    <div class="card-content">
+                        <p>Compounding automático y control de riesgo por trade</p>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card slide-in" style="animation-delay: 0.4s;">
+                    <div class="card-header">
+                        <h3><i class="fas fa-bell"></i> Notificaciones</h3>
+                    </div>
+                    <div class="card-content">
+                        <p>Alertas en tiempo real a través de Telegram y web</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Market Overview Profesional -->
+        <section class="market-overview">
+            <div class="section-header">
+                <h2 class="fade-in">Mercado en Tiempo Real</h2>
+                <p class="fade-in">Gráficos interactivos en tiempo real</p>
+            </div>
+            
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3>BTC/USDT</h3>
+                        <div class="card-actions">
+                            <button class="card-action-btn"><i class="fas fa-sync"></i></button>
+                            <button class="card-action-btn"><i class="fas fa-chart-line"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="btc-chart" class="chart-container"></div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3>ETH/USDT</h3>
+                        <div class="card-actions">
+                            <button class="card-action-btn"><i class="fas fa-sync"></i></button>
+                            <button class="card-action-btn"><i class="fas fa-chart-line"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="eth-chart" class="chart-container"></div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3>SOL/USDT</h3>
+                        <div class="card-actions">
+                            <button class="card-action-btn"><i class="fas fa-sync"></i></button>
+                            <button class="card-action-btn"><i class="fas fa-chart-line"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="sol-chart" class="chart-container"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Market Tickers Profesional -->
+        <section class="market-tickers-section">
+            <div class="section-header">
+                <h2 class="fade-in">Mercado en Tiempo Real</h2>
+            </div>
+            
+            <div class="market-tickers">
+                <div class="ticker-item">
+                    <div class="ticker-symbol">BTC/USDT</div>
+                    <div class="ticker-name">Bitcoin</div>
+                    <div class="ticker-price real-time-price">$45,230.45</div>
+                    <div class="ticker-change real-time-change positive">+1.2%</div>
+                </div>
+                <div class="ticker-item">
+                    <div class="ticker-symbol">ETH/USDT</div>
+                    <div class="ticker-name">Ethereum</div>
+                    <div class="ticker-price real-time-price">$3,210.78</div>
+                    <div class="ticker-change real-time-change positive">+0.8%</div>
+                </div>
+                <div class="ticker-item">
+                    <div class="ticker-symbol">SOL/USDT</div>
+                    <div class="ticker-name">Solana</div>
+                    <div class="ticker-price real-time-price">$152.34</div>
+                    <div class="ticker-change real-time-change negative">-0.3%</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Inicializar gráficos de ejemplo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Crear gráficos de ejemplo
+            const symbols = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'];
+            const colors = ['#f7931a', '#627eea', '#00d0fc'];
+            
+            symbols.forEach((symbol, index) => {
+                const chartData = [{
+                    x: Array.from({length: 50}, (_, i) => i),
+                    y: Array.from({length: 50}, () => Math.random() * 100 + 50),
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {
+                        color: colors[index],
+                        width: 3
+                    },
+                    fill: 'tonexty',
+                    fillcolor: colors[index] + '20'
+                }];
+                
+                const layout = {
+                    title: symbol,
+                    xaxis: { showgrid: false, showticklabels: false },
+                    yaxis: { showgrid: false },
+                    margin: { l: 30, r: 30, b: 30, t: 30 },
+                    paper_bgcolor: 'transparent',
+                    plot_bgcolor: 'transparent',
+                    showlegend: false
+                };
+                
+                Plotly.newPlot(`btc-chart eth-chart sol-chart`.split(' ')[index], chartData, layout);
+            });
+        });
+    </script>
+</body>
+</html>
