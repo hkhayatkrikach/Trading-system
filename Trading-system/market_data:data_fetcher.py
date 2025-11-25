@@ -14,9 +14,12 @@ class DataFetcher:
         """Fetch data and calculate all indicators"""
         # Get OHLCV data
         df = self.api.get_ohlcv(symbol, timeframe, lookback)
-        
+
         if df.empty:
             return {}
+
+        df['symbol'] = symbol
+        df['timeframe'] = timeframe
         
         # Calculate technical indicators
         df['ema21'] = self.indicators.ema(df['close'], 21)

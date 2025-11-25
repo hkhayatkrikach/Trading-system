@@ -133,7 +133,7 @@
         <section class="market-overview">
             <div class="section-header">
                 <h2 class="fade-in">Mercado en Tiempo Real</h2>
-                <p class="fade-in">Gráficos interactivos en tiempo real</p>
+                <p class="fade-in">Gráficos interactivos alimentados por el backend</p>
             </div>
             
             <div class="dashboard-grid">
@@ -205,43 +205,47 @@
                 </div>
             </div>
         </section>
+
+        <section class="market-tickers-section">
+            <div class="section-header">
+                <h2 class="fade-in">Actividad del Sistema</h2>
+                <p class="fade-in">Conexión directa con la base de datos y los últimos tickers</p>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3>Señales recientes</h3>
+                    </div>
+                    <div class="card-content signals-list">
+                        <p class="muted">Cargando señales...</p>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3>Posiciones abiertas</h3>
+                    </div>
+                    <div class="card-content positions-list">
+                        <p class="muted">Cargando posiciones...</p>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3>Historial de trades</h3>
+                    </div>
+                    <div class="card-content trades-list">
+                        <p class="muted">Cargando trades...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script>
-        // Inicializar gráficos de ejemplo
-        document.addEventListener('DOMContentLoaded', function() {
-            // Crear gráficos de ejemplo
-            const symbols = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'];
-            const colors = ['#f7931a', '#627eea', '#00d0fc'];
-            
-            symbols.forEach((symbol, index) => {
-                const chartData = [{
-                    x: Array.from({length: 50}, (_, i) => i),
-                    y: Array.from({length: 50}, () => Math.random() * 100 + 50),
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: {
-                        color: colors[index],
-                        width: 3
-                    },
-                    fill: 'tonexty',
-                    fillcolor: colors[index] + '20'
-                }];
-                
-                const layout = {
-                    title: symbol,
-                    xaxis: { showgrid: false, showticklabels: false },
-                    yaxis: { showgrid: false },
-                    margin: { l: 30, r: 30, b: 30, t: 30 },
-                    paper_bgcolor: 'transparent',
-                    plot_bgcolor: 'transparent',
-                    showlegend: false
-                };
-                
-                Plotly.newPlot(`btc-chart eth-chart sol-chart`.split(' ')[index], chartData, layout);
-            });
-        });
+        // Los gráficos y widgets se renderizan desde main.js usando los endpoints del backend
     </script>
 </body>
 </html>

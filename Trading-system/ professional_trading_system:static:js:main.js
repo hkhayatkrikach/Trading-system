@@ -5,7 +5,9 @@ class ProfessionalTradingSystem {
             portfolio: null,
             market: {},
             symbols: [],
-            realTime: null
+            realTime: null,
+            signals: [],
+            trades: []
         };
         this.charts = new Map();
         this.init();
@@ -20,23 +22,47 @@ class ProfessionalTradingSystem {
 
     async loadInitialData() {
         try {
-            // Cargar datos del portfolio
-            const portfolioResponse = await fetch('/api/portfolio-data');
-            this.data.portfolio = await portfolioResponse.json();
-            
-            // Cargar símbolos
-            const symbolsResponse = await fetch('/api/symbols');
-            this.data.symbols = await symbolsResponse.json();
-            
-            // Cargar datos de mercado para cada símbolo
-            for (const symbol of this.data.symbols) {
-                const marketResponse = await fetch(`/api/market-data/${symbol.symbol}`);
-                this.data.market[symbol.symbol] = await marketResponse.json();
-            }
-            
+            await Promise.all([
+                this.loadPortfolio(),
+                this.loadSymbols(),
+                this.loadSignals(),
+                this.loadTrades(),
+            ]);
+
+            await this.loadMarketData();
             this.updateUI();
         } catch (error) {
             console.error('Error loading initial data:', error);
+        }
+    }
+
+    async loadPortfolio() {
+        const portfolioResponse = await fetch('/api/portfolio-data');
+        this.data.portfolio = await portfolioResponse.json();
+    }
+
+    async loadSymbols() {
+        const symbolsResponse = await fetch('/api/symbols');
+        this.data.symbols = await symbolsResponse.json();
+    }
+
+    async loadSignals() {
+        const response = await fetch('/api/signals');
+        this.data.signals = await response.json();
+    }
+
+    async loadTrades() {
+        const response = await fetch('/api/trades');
+        this.data.trades = await response.json();
+    }
+
+    async loadMarketData() {
+        if (!this.data.symbols?.length) return;
+
+        for (const symbol of this.data.symbols) {
+            const marketResponse = await fetch(`/api/market-data/${encodeURIComponent(symbol.symbol)}?timeframe=${symbol.timeframe || '1h'}`);
+            this.data.market[symbol.symbol] = await marketResponse.json();
+            this.renderChart(symbol.symbol, this.data.market[symbol.symbol]);
         }
     }
 
@@ -45,6 +71,7 @@ class ProfessionalTradingSystem {
         this.updateMarketDisplay();
         this.updateTradesDisplay();
         this.updatePositionsDisplay();
+        this.updateSignalsDisplay();
     }
 
     updatePortfolioDisplay() {
@@ -89,28 +116,31 @@ class ProfessionalTradingSystem {
                 <div class="ticker-change ${symbol.change >= 0 ? 'positive' : 'negative'}">
                     ${symbol.change >= 0 ? '+' : ''}${symbol.change?.toFixed(2) || '0.00'}%
                 </div>
+                <div class="ticker-timeframe">${symbol.timeframe || ''}</div>
             `;
             marketContainer.appendChild(tickerElement);
         });
     }
 
     updateTradesDisplay() {
-        if (!this.data.portfolio?.trades) return;
+        if (!this.data.trades?.length) return;
 
         const tradesContainer = document.querySelector('.trades-list');
         if (!tradesContainer) return;
 
         tradesContainer.innerHTML = '';
-        
-        this.data.portfolio.trades.forEach(trade => {
+
+        this.data.trades.forEach(trade => {
             const tradeElement = document.createElement('div');
             tradeElement.className = 'trade-item';
+            const type = (trade.signal_type || trade.type || '').toLowerCase();
+            const pnl = trade.pnl ?? trade.profit_potential ?? 0;
             tradeElement.innerHTML = `
                 <div class="trade-symbol">${trade.symbol}</div>
-                <div class="trade-type ${trade.type.toLowerCase()}">${trade.type}</div>
-                <div class="trade-time">${trade.time}</div>
-                <div class="trade-pnl ${trade.pnl >= 0 ? 'positive' : 'negative'}">
-                    ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl?.toFixed(2) || '0.00'}
+                <div class="trade-type ${type}">${trade.signal_type || trade.type}</div>
+                <div class="trade-time">${trade.timestamp || trade.time}</div>
+                <div class="trade-pnl ${pnl >= 0 ? 'positive' : 'negative'}">
+                    ${pnl >= 0 ? '+' : ''}$${pnl?.toFixed(2) || '0.00'}
                 </div>
             `;
             tradesContainer.appendChild(tradeElement);
@@ -135,8 +165,31 @@ class ProfessionalTradingSystem {
                 <div class="position-pnl ${position.pnl >= 0 ? 'positive' : 'negative'}">
                     ${position.pnl >= 0 ? '+' : ''}$${position.pnl?.toFixed(2) || '0.00'}
                 </div>
+                <div class="position-timeframe">${position.timeframe || ''}</div>
             `;
             positionsContainer.appendChild(positionElement);
+        });
+    }
+
+    updateSignalsDisplay() {
+        const signalsContainer = document.querySelector('.signals-list');
+        if (!signalsContainer || !this.data.signals?.length) return;
+
+        signalsContainer.innerHTML = '';
+
+        this.data.signals.forEach(signal => {
+            const signalElement = document.createElement('div');
+            const type = (signal.signal_type || '').toLowerCase();
+            signalElement.className = 'signal-item';
+            signalElement.innerHTML = `
+                <div class="signal-symbol">${signal.symbol}</div>
+                <div class="signal-type ${type}">${signal.signal_type}</div>
+                <div class="signal-timeframe">${signal.timeframe || ''}</div>
+                <div class="signal-entry">Entrada: $${signal.entry_price?.toFixed(2) || '0.00'}</div>
+                <div class="signal-stops">SL: $${signal.stop_loss?.toFixed(2) || '0.00'} | TP: $${signal.take_profit?.toFixed(2) || '0.00'}</div>
+                <div class="signal-date">${signal.timestamp}</div>
+            `;
+            signalsContainer.appendChild(signalElement);
         });
     }
 
@@ -248,11 +301,47 @@ class ProfessionalTradingSystem {
 
     // Actualizar gráfico
     updateChart(symbol, newData) {
-        if (this.charts.has(symbol)) {
-            const chart = this.charts.get(symbol);
-            // Actualizar gráfico con nuevos datos
-            // (Implementación específica según la biblioteca de gráficos)
-        }
+        const containerId = this.getChartId(symbol);
+        if (!containerId) return;
+
+        const x = newData.map(point => point.time);
+        const o = newData.map(point => point.open);
+        const h = newData.map(point => point.high);
+        const l = newData.map(point => point.low);
+        const c = newData.map(point => point.close);
+
+        const trace = [{
+            x,
+            open: o,
+            high: h,
+            low: l,
+            close: c,
+            type: 'candlestick',
+            increasing: { line: { color: '#4ade80' } },
+            decreasing: { line: { color: '#f87171' } },
+        }];
+
+        const layout = {
+            margin: { l: 30, r: 10, b: 30, t: 20 },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            xaxis: { showgrid: false },
+            yaxis: { showgrid: false },
+            showlegend: false,
+        };
+
+        Plotly.newPlot(containerId, trace, layout, { displayModeBar: false });
+        this.charts.set(symbol, containerId);
+    }
+
+    getChartId(symbol) {
+        const mapping = {
+            'BTC/USDT': 'btc-chart',
+            'ETH/USDT': 'eth-chart',
+            'SOL/USDT': 'sol-chart',
+        };
+
+        return mapping[symbol] || null;
     }
 }
 
