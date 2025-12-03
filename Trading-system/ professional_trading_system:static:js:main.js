@@ -196,6 +196,7 @@ class ProfessionalTradingSystem {
                     <div class="meta">Entrada: $${(signal.entry_price ?? 0).toFixed(2)}</div>
                     <div class="meta">SL: $${(signal.stop_loss ?? 0).toFixed(2)} · TP: $${(signal.take_profit ?? 0).toFixed(2)}</div>
                 </div>
+                <div class="ticker-timeframe">${symbol.timeframe || ''}</div>
             `;
             container.appendChild(item);
         });
@@ -266,6 +267,7 @@ class ProfessionalTradingSystem {
                     <div class="meta">Size: ${(pos.size ?? 0).toFixed(4)}</div>
                     <div class="meta ${pos.pnl >= 0 ? 'positive' : 'negative'}">PnL: ${pos.pnl >= 0 ? '+' : ''}$${(pos.pnl ?? 0).toFixed(2)}</div>
                 </div>
+                <div class="position-timeframe">${position.timeframe || ''}</div>
             `;
             container.appendChild(item);
         });
