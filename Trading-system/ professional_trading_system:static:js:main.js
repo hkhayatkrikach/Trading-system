@@ -1,262 +1,426 @@
-// Aplicación Principal Profesional
 class ProfessionalTradingSystem {
     constructor() {
         this.data = {
             portfolio: null,
-            market: {},
             symbols: [],
-            realTime: null
+            signals: [],
+            trades: [],
+            market: {},
+            realTime: null,
         };
-        this.charts = new Map();
+
+        this.selectedSymbol = null;
+        this.selectedTimeframe = '1h';
+        this.chartId = 'main-chart';
+        this.chartInstance = null;
+
         this.init();
     }
 
     async init() {
         await this.loadInitialData();
-        this.setupUI();
-        this.startRealTimeUpdates();
         this.setupEventListeners();
+        await this.refreshRealTime();
+        this.startRealTimeUpdates();
     }
 
+    /* ----------------------- Data loading ----------------------- */
     async loadInitialData() {
         try {
-            // Cargar datos del portfolio
-            const portfolioResponse = await fetch('/api/portfolio-data');
-            this.data.portfolio = await portfolioResponse.json();
-            
-            // Cargar símbolos
-            const symbolsResponse = await fetch('/api/symbols');
-            this.data.symbols = await symbolsResponse.json();
-            
-            // Cargar datos de mercado para cada símbolo
-            for (const symbol of this.data.symbols) {
-                const marketResponse = await fetch(`/api/market-data/${symbol.symbol}`);
-                this.data.market[symbol.symbol] = await marketResponse.json();
+            await Promise.all([
+                this.loadPortfolio(),
+                this.loadSymbols(),
+                this.loadSignals(),
+                this.loadTrades(),
+            ]);
+
+            if (!this.selectedSymbol && this.data.symbols.length) {
+                this.selectedSymbol = this.data.symbols[0].symbol;
+                this.selectedTimeframe = this.data.symbols[0].timeframe || '1h';
             }
-            
+
+            await this.loadMarketData();
             this.updateUI();
         } catch (error) {
             console.error('Error loading initial data:', error);
+            this.notify('No se pudieron cargar los datos iniciales.', 'error');
         }
     }
 
-    setupUI() {
-        this.updatePortfolioDisplay();
-        this.updateMarketDisplay();
-        this.updateTradesDisplay();
-        this.updatePositionsDisplay();
+    async loadPortfolio() {
+        const response = await fetch('/api/portfolio-data');
+        this.data.portfolio = await response.json();
     }
 
-    updatePortfolioDisplay() {
-        if (!this.data.portfolio) return;
+    async loadSymbols() {
+        const response = await fetch('/api/symbols');
+        this.data.symbols = await response.json();
+    }
 
-        // Actualizar balance
-        const balanceElements = document.querySelectorAll('.balance-amount');
-        balanceElements.forEach(element => {
-            element.textContent = `$${this.data.portfolio.balance?.toFixed(2) || '10,000.00'}`;
+    async loadSignals() {
+        const response = await fetch('/api/signals');
+        this.data.signals = await response.json();
+    }
+
+    async loadTrades() {
+        const response = await fetch('/api/trades');
+        this.data.trades = await response.json();
+    }
+
+    async loadMarketData(symbol = this.selectedSymbol, timeframe = this.selectedTimeframe) {
+        if (!symbol) return;
+        const marketResponse = await fetch(`/api/market-data/${encodeURIComponent(symbol)}?timeframe=${timeframe}`);
+        const candles = await marketResponse.json();
+        this.data.market[symbol] = candles;
+    }
+
+    /* ----------------------- UI updates ----------------------- */
+    updateUI() {
+        this.renderHeader();
+        this.renderSymbols();
+        this.renderMarketTicker();
+        this.renderPortfolioStats();
+        this.renderSignals();
+        this.renderTrades();
+        this.renderPositions();
+        this.renderChart();
+    }
+
+    renderHeader() {
+        const balanceEls = document.querySelectorAll('.balance-amount');
+        const balance = this.data.portfolio?.balance ?? 0;
+        balanceEls.forEach(el => (el.textContent = `$${balance.toFixed(2)}`));
+
+        const pnlEl = document.querySelector('.pnl-value');
+        if (pnlEl) pnlEl.textContent = `$${(this.data.portfolio?.daily_pnl ?? 0).toFixed(2)}`;
+
+        const winRateEl = document.querySelector('.win-rate');
+        if (winRateEl) winRateEl.textContent = `${this.data.portfolio?.win_rate ?? 0}%`;
+
+        document.querySelector('.selected-symbol')?.textContent = this.selectedSymbol || '—';
+        document.querySelector('.selected-timeframe')?.textContent = this.selectedTimeframe;
+    }
+
+    renderSymbols() {
+        const container = document.querySelector('.symbol-selector');
+        if (!container) return;
+        container.innerHTML = '';
+
+        this.data.symbols.forEach(({ symbol }) => {
+            const btn = document.createElement('button');
+            btn.className = `symbol-button ${symbol === this.selectedSymbol ? 'active' : ''}`;
+            btn.dataset.symbol = symbol;
+            btn.textContent = symbol;
+            btn.onclick = async () => {
+                this.selectedSymbol = symbol;
+                await this.loadMarketData(symbol, this.selectedTimeframe);
+                this.updateUI();
+            };
+            container.appendChild(btn);
         });
+    }
 
-        // Actualizar estadísticas
-        const stats = [
-            { selector: '.stat-value.balance', value: `$${this.data.portfolio.balance?.toFixed(2) || '10,000.00'}` },
-            { selector: '.stat-value.pnl', value: `$${this.data.portfolio.daily_pnl?.toFixed(2) || '0.00'}` },
-            { selector: '.stat-value.win-rate', value: `${this.data.portfolio.win_rate || 0}%` }
-        ];
+    renderMarketTicker() {
+        const feed = document.querySelector('.ticker-feed');
+        if (!feed) return;
+        feed.innerHTML = '';
 
-        stats.forEach(stat => {
-            const elements = document.querySelectorAll(stat.selector);
-            elements.forEach(element => {
-                element.textContent = stat.value;
+        this.data.symbols.forEach((s) => {
+            const row = document.createElement('div');
+            const change = s.change ?? 0;
+            row.className = 'ticker-row';
+            row.innerHTML = `
+                <strong>${s.symbol}</strong>
+                <span>${s.price ? `$${s.price.toFixed(2)}` : '—'}</span>
+                <span>${s.timeframe || ''}</span>
+                <span class="change ${change >= 0 ? 'positive' : 'negative'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</span>
+            `;
+            row.addEventListener('click', async () => {
+                this.selectedSymbol = s.symbol;
+                await this.loadMarketData(s.symbol, this.selectedTimeframe);
+                this.updateUI();
             });
+            feed.appendChild(row);
         });
+
+        this.updateTradeStats();
     }
 
-    updateMarketDisplay() {
-        if (!this.data.symbols) return;
+    updateTradeStats() {
+        const totals = {
+            total: this.data.portfolio?.total_trades ?? 0,
+            long: this.data.portfolio?.long_trades ?? 0,
+            short: this.data.portfolio?.short_trades ?? 0,
+        };
+        document.querySelector('.total-trades')?.textContent = totals.total;
+        document.querySelector('.long-trades')?.textContent = totals.long;
+        document.querySelector('.short-trades')?.textContent = totals.short;
+    }
 
-        const marketContainer = document.querySelector('.market-tickers');
-        if (!marketContainer) return;
+    renderPortfolioStats() {
+        const pnlPercent = this.data.portfolio?.daily_pnl ?? 0;
+        const pnlPill = document.querySelector('.pnl');
+        if (pnlPill) {
+            pnlPill.textContent = `${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%`;
+            pnlPill.classList.toggle('positive', pnlPercent >= 0);
+            pnlPill.classList.toggle('negative', pnlPercent < 0);
+        }
+    }
 
-        marketContainer.innerHTML = '';
-        
-        this.data.symbols.slice(0, 5).forEach(symbol => {
-            const tickerElement = document.createElement('div');
-            tickerElement.className = 'ticker-item';
-            tickerElement.innerHTML = `
-                <div class="ticker-symbol">${symbol.symbol}</div>
-                <div class="ticker-name">${symbol.name}</div>
-                <div class="ticker-price">$${symbol.price?.toFixed(2) || '0.00'}</div>
-                <div class="ticker-change ${symbol.change >= 0 ? 'positive' : 'negative'}">
-                    ${symbol.change >= 0 ? '+' : ''}${symbol.change?.toFixed(2) || '0.00'}%
+    renderSignals() {
+        const container = document.querySelector('.signals-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!this.data.signals.length) {
+            container.textContent = 'No hay señales disponibles.';
+            container.classList.add('empty-state');
+            return;
+        }
+        container.classList.remove('empty-state');
+
+        this.data.signals.slice(0, 10).forEach(signal => {
+            const item = document.createElement('div');
+            const type = (signal.signal_type || '').toLowerCase();
+            item.className = 'list-item';
+            item.innerHTML = `
+                <div>
+                    <strong>${signal.symbol}</strong>
+                    <div class="meta">${signal.timestamp}</div>
+                </div>
+                <div>
+                    <span class="badge ${type}">${signal.signal_type}</span>
+                    <div class="meta">${signal.timeframe || ''}</div>
+                </div>
+                <div>
+                    <div class="meta">Entrada: $${(signal.entry_price ?? 0).toFixed(2)}</div>
+                    <div class="meta">SL: $${(signal.stop_loss ?? 0).toFixed(2)} · TP: $${(signal.take_profit ?? 0).toFixed(2)}</div>
                 </div>
             `;
-            marketContainer.appendChild(tickerElement);
+            container.appendChild(item);
         });
     }
 
-    updateTradesDisplay() {
-        if (!this.data.portfolio?.trades) return;
+    renderTrades() {
+        const container = document.querySelector('.trades-list');
+        if (!container) return;
+        container.innerHTML = '';
 
-        const tradesContainer = document.querySelector('.trades-list');
-        if (!tradesContainer) return;
+        if (!this.data.trades.length) {
+            container.textContent = 'Aún no hay trades ejecutados.';
+            container.classList.add('empty-state');
+            return;
+        }
+        container.classList.remove('empty-state');
 
-        tradesContainer.innerHTML = '';
-        
-        this.data.portfolio.trades.forEach(trade => {
-            const tradeElement = document.createElement('div');
-            tradeElement.className = 'trade-item';
-            tradeElement.innerHTML = `
-                <div class="trade-symbol">${trade.symbol}</div>
-                <div class="trade-type ${trade.type.toLowerCase()}">${trade.type}</div>
-                <div class="trade-time">${trade.time}</div>
-                <div class="trade-pnl ${trade.pnl >= 0 ? 'positive' : 'negative'}">
-                    ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl?.toFixed(2) || '0.00'}
+        this.data.trades.slice(0, 10).forEach(trade => {
+            const pnl = trade.pnl ?? trade.profit_potential ?? 0;
+            const type = (trade.signal_type || trade.type || '').toLowerCase();
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            item.innerHTML = `
+                <div>
+                    <strong>${trade.symbol}</strong>
+                    <div class="meta">${trade.timestamp}</div>
+                </div>
+                <div>
+                    <span class="badge ${type}">${trade.signal_type || trade.type}</span>
+                    <div class="meta">${trade.timeframe || ''}</div>
+                </div>
+                <div>
+                    <div class="meta">Size: ${(trade.position_size ?? 0).toFixed(4)}</div>
+                    <div class="meta ${pnl >= 0 ? 'positive' : 'negative'}">PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</div>
                 </div>
             `;
-            tradesContainer.appendChild(tradeElement);
+            container.appendChild(item);
         });
     }
 
-    updatePositionsDisplay() {
-        if (!this.data.portfolio?.positions) return;
+    renderPositions() {
+        const container = document.querySelector('.positions-list');
+        if (!container) return;
+        container.innerHTML = '';
 
-        const positionsContainer = document.querySelector('.positions-list');
-        if (!positionsContainer) return;
+        const positions = this.data.portfolio?.positions || [];
+        if (!positions.length) {
+            container.textContent = 'Sin posiciones abiertas.';
+            container.classList.add('empty-state');
+            return;
+        }
+        container.classList.remove('empty-state');
 
-        positionsContainer.innerHTML = '';
-        
-        this.data.portfolio.positions.forEach(position => {
-            const positionElement = document.createElement('div');
-            positionElement.className = 'position-item';
-            positionElement.innerHTML = `
-                <div class="position-symbol">${position.symbol}</div>
-                <div class="position-type ${position.type.toLowerCase()}">${position.type}</div>
-                <div class="position-size">${position.size?.toFixed(4) || '0.0000'}</div>
-                <div class="position-pnl ${position.pnl >= 0 ? 'positive' : 'negative'}">
-                    ${position.pnl >= 0 ? '+' : ''}$${position.pnl?.toFixed(2) || '0.00'}
+        positions.forEach(pos => {
+            const type = (pos.type || '').toLowerCase();
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            item.innerHTML = `
+                <div>
+                    <strong>${pos.symbol}</strong>
+                    <div class="meta">${pos.opened_at || ''}</div>
+                </div>
+                <div>
+                    <span class="badge ${type}">${pos.type}</span>
+                    <div class="meta">${pos.timeframe || ''}</div>
+                </div>
+                <div>
+                    <div class="meta">Size: ${(pos.size ?? 0).toFixed(4)}</div>
+                    <div class="meta ${pos.pnl >= 0 ? 'positive' : 'negative'}">PnL: ${pos.pnl >= 0 ? '+' : ''}$${(pos.pnl ?? 0).toFixed(2)}</div>
                 </div>
             `;
-            positionsContainer.appendChild(positionElement);
+            container.appendChild(item);
         });
     }
 
-    setupEventListeners() {
-        // Navegación
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                
-                // Remover active de todos
-                document.querySelectorAll('.nav-item').forEach(nav => {
-                    nav.classList.remove('active');
-                });
-                
-                // Agregar active al actual
-                item.classList.add('active');
-                
-                // Navegar
-                const href = item.getAttribute('href');
-                window.location.href = href;
-            });
-        });
+    renderChart() {
+        const data = this.data.market[this.selectedSymbol] || [];
+        if (!data.length) return;
 
-        // Botones de acción
-        document.querySelectorAll('.btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.preventDefault();
-                
-                const href = button.getAttribute('href');
-                if (href) {
-                    window.location.href = href;
-                }
-            });
-        });
+        const trace = [{
+            x: data.map(d => d.time),
+            open: data.map(d => d.open),
+            high: data.map(d => d.high),
+            low: data.map(d => d.low),
+            close: data.map(d => d.close),
+            type: 'candlestick',
+            increasing: { line: { color: '#4ade80' } },
+            decreasing: { line: { color: '#f87171' } },
+        }];
 
-        // Efectos de hover
-        document.querySelectorAll('.hover-glow').forEach(element => {
-            element.addEventListener('mouseenter', () => {
-                element.style.transform = 'translateY(-2px)';
-                element.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
-            });
-            
-            element.addEventListener('mouseleave', () => {
-                element.style.transform = 'translateY(0)';
-                element.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.16)';
-            });
-        });
+        const layout = {
+            margin: { l: 40, r: 10, t: 10, b: 30 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            xaxis: { color: '#a5abb6' },
+            yaxis: { color: '#a5abb6', side: 'right' },
+            font: { color: '#f5f7fb' },
+            dragmode: 'pan',
+        };
+
+        Plotly.newPlot(this.chartId, trace, layout, { displayModeBar: false, responsive: true });
+        const last = data[data.length - 1];
+        document.querySelector('.live-price')?.textContent = `$${(last.close ?? 0).toFixed(2)}`;
+        const changeEl = document.querySelector('.live-change');
+        if (changeEl) {
+            const change = ((last.close - data[0].open) / data[0].open) * 100;
+            changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+            changeEl.classList.toggle('positive', change >= 0);
+            changeEl.classList.toggle('negative', change < 0);
+        }
     }
 
+    /* ----------------------- Real-time updates ----------------------- */
     startRealTimeUpdates() {
-        // Actualizar datos cada 30 segundos
         setInterval(async () => {
-            await this.loadInitialData();
-        }, 30000);
+            await this.refreshTicker();
+        }, 15000);
 
-        // Actualizar datos en tiempo real cada 5 segundos
         setInterval(async () => {
-            try {
-                const response = await fetch('/api/real-time-data');
-                this.data.realTime = await response.json();
-                this.updateRealTimeData();
-            } catch (error) {
-                console.error('Error updating real-time ', error);
-            }
+            await this.refreshRealTime();
         }, 5000);
     }
 
-    updateRealTimeData() {
-        if (!this.data.realTime) return;
-
-        // Actualizar precio en tiempo real
-        const priceElements = document.querySelectorAll('.real-time-price');
-        priceElements.forEach(element => {
-            element.textContent = `$${this.data.realTime.price?.toFixed(2) || '0.00'}`;
-        });
-
-        // Actualizar cambio en tiempo real
-        const changeElements = document.querySelectorAll('.real-time-change');
-        changeElements.forEach(element => {
-            const change = this.data.realTime.change || 0;
-            element.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
-            element.className = `real-time-change ${change >= 0 ? 'positive' : 'negative'}`;
-        });
+    async refreshTicker() {
+        await this.loadSymbols();
+        this.renderMarketTicker();
     }
 
-    // Mostrar notificación
-    showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.textContent = message;
-        
-        document.body.appendChild(notification);
-        
-        // Animación de entrada
-        setTimeout(() => {
-            notification.style.opacity = '1';
-            notification.style.transform = 'translateX(0)';
-        }, 10);
-        
-        // Remover después de 3 segundos
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateX(100px)';
-            setTimeout(() => {
-                notification.remove();
-            }, 300);
-        }, 3000);
-    }
-
-    // Actualizar gráfico
-    updateChart(symbol, newData) {
-        if (this.charts.has(symbol)) {
-            const chart = this.charts.get(symbol);
-            // Actualizar gráfico con nuevos datos
-            // (Implementación específica según la biblioteca de gráficos)
+    async refreshRealTime() {
+        try {
+            const response = await fetch('/api/real-time-data');
+            this.data.realTime = await response.json();
+            this.updateRealTimeUI();
+        } catch (error) {
+            console.error('Error in realtime update', error);
         }
+    }
+
+    updateRealTimeUI() {
+        if (!this.data.realTime) return;
+        const { price, change } = this.data.realTime;
+        document.querySelector('.live-price')?.textContent = `$${(price ?? 0).toFixed(2)}`;
+        const changeEl = document.querySelector('.live-change');
+        if (changeEl) {
+            changeEl.textContent = `${change >= 0 ? '+' : ''}${(change ?? 0).toFixed(2)}%`;
+            changeEl.classList.toggle('positive', change >= 0);
+            changeEl.classList.toggle('negative', change < 0);
+        }
+    }
+
+    /* ----------------------- Event listeners ----------------------- */
+    setupEventListeners() {
+        document.querySelectorAll('.timeframe-chip').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                document.querySelectorAll('.timeframe-chip').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.selectedTimeframe = btn.dataset.timeframe;
+                await this.loadMarketData(this.selectedSymbol, this.selectedTimeframe);
+                this.renderChart();
+            });
+        });
+
+        document.querySelectorAll('[data-action="refresh-all"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this.loadInitialData();
+                this.notify('Panel sincronizado');
+            });
+        });
+
+        document.querySelectorAll('[data-action="refresh-market"], [data-action="refresh-chart"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this.loadMarketData();
+                this.renderChart();
+                this.notify('Mercado actualizado');
+            });
+        });
+
+        document.querySelectorAll('[data-action="refresh-signals"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this.loadSignals();
+                this.renderSignals();
+                this.notify('Señales sincronizadas');
+            });
+        });
+
+        document.querySelectorAll('[data-action="refresh-portfolio"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this.loadPortfolio();
+                this.renderHeader();
+                this.renderPositions();
+                this.updateTradeStats();
+                this.notify('Portafolio actualizado');
+            });
+        });
+
+        document.querySelectorAll('[data-action="refresh-trades"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this.loadTrades();
+                this.renderTrades();
+                this.notify('Historial refrescado');
+            });
+        });
+
+        document.querySelectorAll('[data-action="refresh-ticker"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this.refreshTicker();
+                this.notify('Ticker sincronizado');
+            });
+        });
+
+        document.querySelectorAll('[data-action="open-terminal"]').forEach(btn => {
+            btn.addEventListener('click', () => window.location.href = '/terminal');
+        });
+    }
+
+    /* ----------------------- Helpers ----------------------- */
+    notify(message, type = 'info') {
+        const bar = document.querySelector('.notification-bar');
+        if (!bar) return;
+        bar.textContent = message;
+        bar.classList.remove('hidden');
+        bar.classList.add('visible');
+        bar.className = `notification-bar visible ${type}`;
+        setTimeout(() => bar.classList.remove('visible'), 2500);
     }
 }
 
-// Inicializar la aplicación cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-    window.tradingSystem = new ProfessionalTradingSystem();
-});
+new ProfessionalTradingSystem();

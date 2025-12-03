@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 from market_data.indicators import TechnicalIndicators
 
@@ -9,11 +9,11 @@ class SignalGenerator:
         self.config = config
         self.indicators = TechnicalIndicators()
     
-    def generate_signals(self, market_data: List[Dict]) -> Dict:
+    def generate_signals(self, market_data: List[Dict], timeframe: Optional[str] = None) -> Dict:
         """Generate trading signals based on market data"""
         if not market_data:
             return {}
-        
+
         df = pd.DataFrame(market_data)
         
         if len(df) < 50:  # Need sufficient data
@@ -44,6 +44,7 @@ class SignalGenerator:
         
         return {
             'symbol': df['symbol'].iloc[-1] if 'symbol' in df.columns else 'N/A',
+            'timeframe': timeframe or (df['timeframe'].iloc[-1] if 'timeframe' in df.columns else 'N/A'),
             'timestamp': datetime.now().isoformat(),
             'current_price': current_price,
             'trend': trend,
